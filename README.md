@@ -1,167 +1,252 @@
-# Context & Design Keeper (MCP Server)
+# ContextKeeper 2.0 — Developer Governance & Release Engine
 
-Stateful project memory for AI coding tools (Cursor, Claude Desktop, Windsurf, Continue).
+> An all-in-one developer governance, runtime modernization, actor-critic review, and release
+> engine built for **IBM Bob 2.0** and agentic IDE workflows.
 
-Keeps, per project, all in plain git-diffable JSON under `.ai_context/`:
+---
 
-| Store | File | Purpose |
-|--------|------|---------|
-| Session memory | `session_memory.json` | Current focus + rolling action history |
-| Design blueprint | `design_blueprint.json` | Architecture rules + the project's design system (project-wide and per-section) |
-| Decisions | `decisions.json` | Critical decisions, with rationale and alternatives considered |
-| Progress | `progress.json` | Hierarchical task tracker — goals broken into subtasks, worked one at a time |
+## Architectural Overview
 
-Plus a small **cross-project index** outside any one project
-(`~/.context-keeper/projects.json` by default), so you can see every
-project this has been used on.
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                         ContextKeeper 2.0                               │
+│                    FastMCP Server  (stdio transport)                    │
+├──────────────┬──────────────┬────────────────┬───────────┬─────────────┤
+│ core/        │ core/        │ core/          │ core/     │ core/       │
+│ memory.py    │ budget_guard │ modernizer.py  │ critic_   │ artifact_   │
+│              │ .py          │                │ gate.py   │ engine.py   │
+│ Persistent   │ Token-scoped │ Dependency     │ Diff      │ Mermaid /   │
+│ storage      │ context      │ & runtime      │ security  │ PR / wx     │
+│ .context/    │ compaction   │ audit          │ heuristics│ Orchestrate │
+│ AGENTS.md    │              │                │ + SARIF   │             │
+└──────────────┴──────────────┴────────────────┴───────────┴─────────────┘
+         │                                                       │
+         ▼                                                       ▼
+  .context/sessions.json                              reports/bob_audit.sarif
+  .context/constraints.json                           AGENTS.md (Bob /init)
+  .context/deprecated_rules.json                      PR markdown template
+```
 
-Commit `.ai_context/` to the repo and context survives across machines and
-sessions automatically — no external service required.
+### Module responsibilities
 
-## Honest notes on what this does and doesn't do
+| Module | Responsibility |
+|--------|---------------|
+| [`server.py`](src/context_keeper_mcp/server.py) | FastMCP entry point; registers all 7 MCP tools with type annotations and docstrings |
+| [`core/memory.py`](src/context_keeper_mcp/core/memory.py) | Atomic JSON storage for `.context/`; bi-directional AGENTS.md sync compatible with Bob's `/init` |
+| [`core/budget_guard.py`](src/context_keeper_mcp/core/budget_guard.py) | Token compaction engine; returns only top 5–7 relevant constraints per focus area |
+| [`core/modernizer.py`](src/context_keeper_mcp/core/modernizer.py) | Manifest scanner; detects deprecated packages, CVEs, and outdated runtimes |
+| [`core/critic_gate.py`](src/context_keeper_mcp/core/critic_gate.py) | Diff auditor with deterministic security heuristics; exports OASIS SARIF v2.1.0 |
+| [`core/artifact_engine.py`](src/context_keeper_mcp/core/artifact_engine.py) | Generates Mermaid diagrams, Conventional Commits PR templates, watsonx Orchestrate payloads |
 
-- **Design system**: this server has no visual/creative judgment of its
-  own — it's a data store. `infer_project_type_hints` only returns raw,
-  read-only evidence (manifest files, folder names, README text, file-type
-  counts); it never decides anything. The actual judgment about what a
-  project should look like still comes from the AI model calling this
-  server, via `set_design_system`. What this gets you is that judgment
-  happening explicitly once (with an `anti_patterns` field forcing the
-  model to name generic patterns to avoid) and then being served back
-  consistently every session, instead of quietly drifting.
-- **No enforcement**: nothing here checks generated code against the
-  recorded design system or blocks a build that violates it. That would
-  require a real static-analysis/lint layer, which wasn't built here — an
-  AI client can still ignore what it reads.
-- **PyPI**: not published. `.github/workflows/publish.yml` is ready to do
-  it automatically on a version tag, once you add a `PYPI_API_TOKEN` repo
-  secret — that step needs your PyPI account, not something done for you.
+---
+
+## MCP Tools Reference
+
+| Tool | Purpose |
+|------|---------|
+| `checkpoint_task` | Persist task state to `.context/sessions.json`; sync AGENTS.md |
+| `get_scoped_context` | Return top 5–7 relevant constraints for a focus area |
+| `audit_dependencies_and_runtime` | Scan `package.json` / `requirements.txt` / `pyproject.toml` for deprecated packages and CVEs |
+| `audit_diff_compliance` | Evaluate a `git diff` against project constraints and security heuristics |
+| `export_sarif_report` | Write an OASIS SARIF v2.1.0 report to `reports/` |
+| `generate_mermaid_flow` | Generate `sequenceDiagram` or `flowchart LR` Mermaid syntax |
+| `draft_pull_request` | Compile a Conventional Commits PR template with embedded Mermaid diagrams |
+
+---
 
 ## Requirements
 
-- Python 3.10+
+- Python 3.11+
 - [uv](https://docs.astral.sh/uv/) (recommended) or pip
+
+---
 
 ## Install
 
 ```bash
-cd context-keeper-mcp
-uv tool install .
-# or: pip install -e .
-```
+# From source (development)
+uv tool install -e .
 
-Installs a `context-keeper-mcp` command on your PATH.
-
-Once pushed to GitHub:
-
-```bash
+# From GitHub (after push)
 uv tool install git+https://github.com/YOUR_USER/context-keeper-mcp
 ```
 
-## Test with MCP Inspector
+---
 
-```bash
-npx -y @modelcontextprotocol/inspector context-keeper-mcp
-```
+## Bob IDE MCP Configuration
 
-## Cursor
-
-**Settings → Features → MCP → Add New MCP Server**
-- **Name:** `context-keeper`
-- **Type:** `command`
-- **Command:** `context-keeper-mcp`
-
-## Claude Desktop
-
-Edit:
-- macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
-- Windows: `%APPDATA%\Claude\claude_desktop_config.json`
+Add ContextKeeper 2.0 to Bob's `mcp.json` (workspace or global):
 
 ```json
 {
   "mcpServers": {
-    "context-keeper": { "command": "context-keeper-mcp" }
+    "context-keeper": {
+      "command": "context-keeper-mcp",
+      "env": {
+        "CONTEXT_KEEPER_DIR": "${workspaceFolder}/.context"
+      }
+    }
   }
 }
 ```
 
-> If the IDE can't find it on PATH, use the absolute path from
-> `which context-keeper-mcp` / `where context-keeper-mcp` instead.
+> If the binary is not on PATH, use the absolute path:
+> `"command": "/home/user/.local/bin/context-keeper-mcp"`
 
-## Tools & resource
+### Bob `settings.json` snippet
 
-| Kind | Name | Purpose |
-|------|------|---------|
-| Resource | `context://project_memory` | Full dump: focus, design system, architecture, decisions, task progress + next task, recent actions |
-| Tool | `update_current_focus` | Switching files / tasks |
-| Tool | `append_session_note` | Log a minor observation |
-| Tool | `search_session_history` | Find a past note by keyword |
-| Tool | `update_design_blueprint` | Lock architecture rules for a code component |
-| Tool | `set_architecture_summary` | High-level system description |
-| Tool | `get_component_rules` | Look up one component's architecture rules |
-| Tool | `infer_project_type_hints` | Read-only scan of the repo for project-type evidence |
-| Tool | `set_design_system` | Lock the project-wide visual/UX direction, once |
-| Tool | `set_section_design_notes` | Override the design system for one section |
-| Tool | `get_design_system` | Read the design system before generating any UI |
-| Tool | `record_decision` | Log a critical decision with rationale and alternatives |
-| Tool | `search_decisions` | Check a decision wasn't already made |
-| Tool | `get_recent_decisions` | List recent decisions |
-| Tool | `plan_tasks` | Submit a goal, split into subtasks up front, each with an optional priority |
-| Tool | `break_down_task` | Split an existing task further once it turns out bigger, each with an optional priority |
-| Tool | `get_next_task` | The single highest-priority actionable task to pick up now |
-| Tool | `update_task_status` | todo / in_progress / blocked / done |
-| Tool | `update_task_priority` | Re-prioritize a task (high / medium / low) after the fact |
-| Tool | `list_tasks` | List tasks, with parent/child context and priority |
-| Tool | `list_projects` | Every project this has been used on, most recent first |
-
-## Example prompts
-
-```
-Call infer_project_type_hints, then set_design_system with a
-project_type, visual_direction and anti_patterns based on what
-you find — no generic SaaS-template look.
+```json
+{
+  "bob.mcp.servers": {
+    "context-keeper": {
+      "command": "context-keeper-mcp",
+      "transport": "stdio",
+      "env": {
+        "CONTEXT_KEEPER_DIR": "${workspaceFolder}/.context"
+      }
+    }
+  }
+}
 ```
 
-```
-Call plan_tasks with goal "Build auth system", subtasks
-["Design schema", "Implement login endpoint", "Add JWT middleware"],
-and priorities ["high", "high", "medium"]. Then call get_next_task
-and start on that one.
-```
+---
+
+## Example Agent Mode Workflow
+
+The following end-to-end example shows how Bob uses ContextKeeper 2.0 during a feature sprint.
+
+### 1 — Start a task checkpoint
 
 ```
-This is bigger than expected — call break_down_task on T4 with
-["Add token refresh", "Add revocation list"].
+Call checkpoint_task with:
+  task_id   = "feat-payment-v2"
+  summary   = "Upgrade payment processing to Stripe v3 API"
+  decisions = ["Use idempotency keys for all charge requests",
+               "Store webhook secrets in environment variables"]
+  status    = "in_progress"
 ```
 
+ContextKeeper writes `.context/sessions.json` and syncs `AGENTS.md`.
+
+### 2 — Get scoped context before editing
+
 ```
-Before touching auth, call search_decisions for "auth" so I don't
-contradict something already decided.
+Call get_scoped_context with:
+  focus_area   = "payment processing"
+  current_file = "src/payments/stripe_client.py"
 ```
+
+Returns only the 5–7 constraints most relevant to payment code — no noise.
+
+### 3 — Audit dependencies
+
+```
+Call audit_dependencies_and_runtime with:
+  manifest_content = <contents of package.json>
+  manifest_type    = "package.json"
+  target_runtime   = "node@22"
+```
+
+ContextKeeper flags `request` (deprecated), `moment` (maintenance mode),
+and any CVE-listed packages, with recommended modern alternatives.
+
+### 4 — Review a diff before merging
+
+```
+Call audit_diff_compliance with:
+  diff_text      = <output of git diff main..feature/payment-v2>
+  modified_files = ["src/payments/stripe_client.py", "src/payments/webhook.py"]
+```
+
+ContextKeeper runs deterministic security heuristics and checks project
+constraints. Returns verdict `pass` or `fail` with line-level findings.
+
+### 5 — Export SARIF for CI
+
+```
+Call export_sarif_report with:
+  audit_findings = <findings list from step 4>
+  output_file    = "reports/payment-v2.sarif"
+```
+
+The SARIF file is ready for upload to GitHub Code Scanning or any SARIF-compatible tool.
+
+### 6 — Generate a Mermaid diagram
+
+```
+Call generate_mermaid_flow with:
+  subsystem_name     = "PaymentService"
+  components_touched = ["StripeClient", "WebhookHandler", "OrderStore"]
+  flow_type          = "sequence"
+```
+
+Paste the result into a `````mermaid` fence in the PR body or documentation.
+
+### 7 — Draft the pull request
+
+```
+Call draft_pull_request with:
+  task_id      = "feat-payment-v2"
+  branch_name  = "feature/payment-v2"
+  tests_passed = true
+```
+
+Returns a production-ready PR title and markdown body using Conventional Commits
+format, with embedded Mermaid diagram and decision log.
+
+---
+
+## Storage Layout
+
+```
+.context/
+├── sessions.json          # task checkpoints (written by checkpoint_task)
+├── constraints.json       # project rules and banned patterns (edit once)
+├── deprecated_rules.json  # deprecated package/CVE database (update periodically)
+└── .lock                  # file lock (auto-managed)
+
+AGENTS.md                  # auto-synced session log (Bob /init compatible)
+
+reports/
+└── bob_audit.sarif        # SARIF reports (written by export_sarif_report)
+
+bob_sessions/
+└── .gitkeep               # placeholder for session screenshots
+```
+
+Commit `.context/constraints.json` and `.context/deprecated_rules.json` to your repo.
+`sessions.json` and `AGENTS.md` are generated at runtime — commit them if you want
+context to survive across machines.
+
+---
 
 ## Concurrency
 
-All writes to a project's own stores are guarded by one file lock
-(`.ai_context/.lock`, 5s timeout). The cross-project index has its own
-short-timeout lock and fails silently rather than ever blocking a real
-tool call.
+All writes are guarded by a `filelock` with a 5-second timeout. Concurrent
+IDE windows on the same project will serialise rather than corrupt storage.
 
-## Optional: fixed storage paths
+---
+
+## Running Tests
 
 ```bash
-export CONTEXT_KEEPER_DIR=/path/to/my-app/.ai_context   # per-project store
-export CONTEXT_KEEPER_HOME=/path/to/central/index        # cross-project index
+pip install -e ".[dev]"
+pytest tests/ -v
 ```
+
+---
 
 ## Publishing to PyPI
 
 ```bash
-git tag v0.3.0
+git tag v2.0.0
 git push --tags
 ```
 
-...will run `.github/workflows/publish.yml` automatically, once a
-`PYPI_API_TOKEN` secret is set on the GitHub repo.
+Triggers `.github/workflows/publish.yml` automatically once a `PYPI_API_TOKEN`
+secret is set on the repo.
+
+---
 
 ## License
 

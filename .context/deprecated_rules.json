@@ -1,0 +1,124 @@
+{
+  "_comment": "ContextKeeper 2.0 — deprecated package rules. Covers LLM training-cutoff drift: packages the model may still suggest that are now superseded, unmaintained, or CVE-flagged.",
+  "version": "2.0.0",
+
+  "deprecated_packages": {
+    "request": {
+      "severity": "high",
+      "reason": "The 'request' npm package is deprecated (Feb 2020) and no longer maintained.",
+      "replacement": "axios or native fetch (Node 18+)",
+      "notes": "Use native fetch for simple calls; axios for interceptors and config."
+    },
+    "node-fetch": {
+      "severity": "medium",
+      "reason": "node-fetch v2 is CommonJS-only; v3 is ESM-only with breaking changes. Node 18+ ships native fetch.",
+      "replacement": "Native fetch (Node 18+) or undici",
+      "notes": "Set --experimental-fetch flag if on Node 16 (EOL — upgrade first)."
+    },
+    "moment": {
+      "severity": "medium",
+      "reason": "Moment.js is in maintenance mode. Bundle size is large; no tree-shaking.",
+      "replacement": "date-fns or Temporal API (TC39 Stage 3)",
+      "notes": "For timezone-aware work prefer date-fns-tz."
+    },
+    "lodash": {
+      "severity": "low",
+      "reason": "Most Lodash utilities are now native ES2022+. Importing the whole library inflates bundles.",
+      "replacement": "Native Array/Object methods or lodash-es with tree-shaking",
+      "notes": "Use _.cloneDeep carefully — structuredClone() is native since Node 17."
+    },
+    "crypto": {
+      "severity": "high",
+      "reason": "The legacy 'crypto' npm shim is deprecated. Node ships its own crypto built-in; browsers expose Web Crypto API.",
+      "replacement": "Node built-in 'node:crypto' or Web Crypto API (globalThis.crypto)",
+      "notes": "Use SubtleCrypto for key derivation (PBKDF2, HKDF) instead of md5/sha1."
+    },
+    "md5": {
+      "severity": "high",
+      "reason": "MD5 is cryptographically broken. Do not use for security-sensitive hashing.",
+      "replacement": "SHA-256 via node:crypto or Web Crypto SubtleCrypto",
+      "notes": "FIPS 140-2/3 environments prohibit MD5 entirely."
+    },
+    "bcrypt": {
+      "severity": "low",
+      "reason": "bcrypt (native binding) can fail to build on some platforms. Consider the pure-JS alternative.",
+      "replacement": "bcryptjs (drop-in pure-JS) or argon2 for new projects",
+      "notes": "Argon2id is the OWASP-recommended choice for new password hashing."
+    },
+    "urllib2": {
+      "severity": "high",
+      "reason": "urllib2 is a Python 2 module removed in Python 3.",
+      "replacement": "urllib.request (stdlib) or httpx / requests",
+      "notes": "If on Python 3.11+ consider httpx for async support."
+    },
+    "nose": {
+      "severity": "medium",
+      "reason": "nose is unmaintained and incompatible with Python 3.10+ in some configurations.",
+      "replacement": "pytest",
+      "notes": "Migrate test discovery to pytest; use pytest-cov for coverage."
+    },
+    "imp": {
+      "severity": "high",
+      "reason": "'imp' module removed in Python 3.12.",
+      "replacement": "importlib",
+      "notes": "Use importlib.import_module() and importlib.util for dynamic imports."
+    },
+    "distutils": {
+      "severity": "high",
+      "reason": "'distutils' removed in Python 3.12.",
+      "replacement": "setuptools or hatchling",
+      "notes": "Migrate build configuration to pyproject.toml with hatchling or setuptools."
+    },
+    "optparse": {
+      "severity": "low",
+      "reason": "'optparse' is deprecated since Python 3.2.",
+      "replacement": "argparse or click or typer",
+      "notes": "Typer provides Pydantic-style typed CLIs."
+    },
+    "pyyaml": {
+      "severity": "medium",
+      "reason": "yaml.load() without a Loader is a code execution vector (CVE-2017-18342).",
+      "replacement": "Use yaml.safe_load() — same package, safe API",
+      "notes": "Linting rule: ban yaml.load() calls without explicit Loader=yaml.SafeLoader."
+    },
+    "flask": {
+      "severity": "low",
+      "reason": "Flask 1.x and 2.x have multiple known issues with async support; 3.x recommended.",
+      "replacement": "Flask 3.x or FastAPI for async-first workloads",
+      "notes": "FastAPI provides automatic OpenAPI docs and Pydantic validation."
+    }
+  },
+
+  "cve_packages": {
+    "log4j": {
+      "cve_id": "CVE-2021-44228",
+      "reason": "Log4Shell — remote code execution via JNDI lookup in log messages.",
+      "fix_version": ">=2.17.1",
+      "severity": "critical"
+    },
+    "lodash": {
+      "cve_id": "CVE-2021-23337",
+      "reason": "Prototype pollution via _.template; affected versions < 4.17.21.",
+      "fix_version": ">=4.17.21",
+      "severity": "high"
+    },
+    "minimist": {
+      "cve_id": "CVE-2021-44906",
+      "reason": "Prototype pollution in argument parsing.",
+      "fix_version": ">=1.2.6",
+      "severity": "high"
+    },
+    "axios": {
+      "cve_id": "CVE-2023-45857",
+      "reason": "XSRF token exposure via custom headers in cross-origin requests.",
+      "fix_version": ">=1.6.0",
+      "severity": "medium"
+    },
+    "requests": {
+      "cve_id": "CVE-2023-32681",
+      "reason": "Unintended redirect exposure of authentication headers.",
+      "fix_version": ">=2.31.0",
+      "severity": "medium"
+    }
+  }
+}

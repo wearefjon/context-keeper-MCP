@@ -1,0 +1,53 @@
+{
+  "_comment": "ContextKeeper 2.0 — baseline enterprise constraints. Edit to match your project's rules.",
+  "version": "2.0.0",
+
+  "runtime_targets": {
+    "node": ">=22",
+    "python": ">=3.11",
+    "java": ">=17",
+    "go": ">=1.21"
+  },
+
+  "constraints": [
+    "All async functions must wrap await calls in try/except blocks",
+    "No hardcoded credentials — use environment variables or a secrets manager",
+    "All SQL queries must use parameterised statements (no f-string or %-formatting)",
+    "API surface must be versioned (e.g. /v1/, /v2/) before any breaking change",
+    "Every public function must have a docstring with at least one Args/Returns description",
+    "File I/O must be idempotent: use atomic temp-file writes, create dirs with mkdir parents=True",
+    "All new dependencies must be audited against deprecated_rules.json before merging",
+    "Python target: 3.11+; Node target: 22 LTS; no legacy runtimes in new code",
+    "Test coverage threshold: 80% lines for any modified module",
+    "OWASP ASVS L2 compliance required for all authentication and session handling code"
+  ],
+
+  "banned_patterns": [
+    "eval\\(",
+    "pickle\\.loads?\\(",
+    "yaml\\.load\\s*\\([^)]+(?<!safe_load)",
+    "password\\s*=\\s*['\"][^'\"]{4,}['\"]",
+    "secret\\s*=\\s*['\"][^'\"]{4,}['\"]",
+    "api_key\\s*=\\s*['\"][^'\"]{4,}['\"]",
+    "cursor\\.execute\\([^,)]+%[sd]",
+    "subprocess\\.call.*shell=True",
+    "os\\.system\\("
+  ],
+
+  "owasp_checks": {
+    "asvs_level": 2,
+    "rules": [
+      "V2.1 — Passwords must not be stored in plaintext or reversible encryption",
+      "V3.3 — Session tokens must be invalidated on logout",
+      "V5.1 — All user-supplied input must be validated server-side",
+      "V9.1 — TLS 1.2+ required for all external communications",
+      "V14.3 — Debug/verbose error messages must not be exposed in production"
+    ]
+  },
+
+  "testing": {
+    "minimum_coverage_pct": 80,
+    "required_test_types": ["unit", "integration"],
+    "ci_gate": true
+  }
+}
