@@ -250,4 +250,4 @@ secret is set on the repo.
 
 ## License
 
-MIT
+MIT LICENSE 
